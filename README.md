@@ -1,32 +1,44 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Redirector</title>
+<meta charset="UTF-8">
+<title>URL List</title>
+
+<style>
+body {
+    font-family: Arial, sans-serif;
+    margin: 20px;
+}
+button {
+    display: block;
+    width: 80px;
+    margin: 4px 0;
+    padding: 6px;
+    cursor: pointer;
+}
+</style>
+
+<script>
+function redirectToPage(number) {
+    window.location.href = "https://lilalien45.github.io/my-second-test/test-" + number + ".html";
+}
+
+window.onload = function() {
+    const container = document.getElementById("links");
+
+    for (let i = 1; i <= 200; i++) {
+        const button = document.createElement("button");
+        button.textContent = "Page " + i;
+        button.onclick = function() {
+            redirectToPage(i);
+        };
+        container.appendChild(button);
+    }
+};
+</script>
 </head>
 <body>
-    <script>
-        // This script runs inside the HTML to find the number in your URL
-        const currentUrl = window.location.href;
-        
-        // This finds the number between "test-" and ".html"
-        const match = currentUrl.match(/test-(\d+)\.html/);
-        
-        if (match) {
-            const currentNumber = parseInt(match[1]);
-            const nextNumber = currentNumber + 1;
-
-            if (nextNumber <= 200) {
-                // Change the number and go to the next page
-                const nextUrl = currentUrl.replace(`test-${currentNumber}`, `test-${nextNumber}`);
-                window.location.href = nextUrl;
-            } else {
-                document.body.innerHTML = "<h1>Finished! Reached test-200.</h1>";
-            }
-        } else {
-            // If it's the very first page (test.html), go to test-2.html
-            window.location.href = currentUrl.replace("test.html", "test-2.html");
-        }
-    </script>
-    <p>Redirecting to the next number...</p>
+<h2>Select a Page</h2>
+<div id="links"></div>
 </body>
 </html>
