@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>URL Navigator</title>
+
+<style>
+body {
+    font-family: Arial, sans-serif;
+    margin: 20px;
+}
+
+#links a {
+    display: block;
+    margin: 3px 0;
+    text-decoration: none;
+    color: blue;
+    cursor: pointer;
+}
+
+#controls {
+    margin-top: 20px;
+}
+
+button {
+    padding: 6px 12px;
+    margin-right: 10px;
+    cursor: pointer;
+}
+</style>
+</head>
+
+<body>
+
+<h2>Select a Page</h2>
+
+<div id="links"></div>
+
+<div id="controls">
+    <button id="prevBtn">Previous</button>
+    <button id="nextBtn">Next</button>
+</div>
+
+<script>
+const baseURL = "https://lilalien45.github.io/my-second-test/test-";
+const totalPages = 200;
+const pageSize = 20;
+let currentStart = 1;
+
+const container = document.getElementById("links");
+const prevBtn = document.getElementById("prevBtn");
+const nextBtn = document.getElementById("nextBtn");
+
+function renderLinks() {
+    let html = "";
+    const end = Math.min(currentStart + pageSize - 1, totalPages);
+
+    for (let i = currentStart; i <= end; i++) {
+        html += `<a href="${baseURL}${i}.html">${i}.html</a>`;
+    }
+
+    container.innerHTML = html;
+
+    prevBtn.disabled = currentStart === 1;
+    nextBtn.disabled = end === totalPages;
+}
+
+nextBtn.addEventListener("click", function() {
+    if (currentStart + pageSize <= totalPages) {
+        currentStart += pageSize;
+        renderLinks();
+    }
+});
+
+prevBtn.addEventListener("click", function() {
+    if (currentStart - pageSize >= 1) {
+        currentStart -= pageSize;
+        renderLinks();
+    }
+});
+
+renderLinks();
+</script>
+
+</body>
+</html>
