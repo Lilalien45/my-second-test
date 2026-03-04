@@ -15,19 +15,16 @@
     </style>
 </head>
 <body>
-
     <h2>1. Remote Git Execution</h2>
     <div class="zone">
         <button onclick="launchAllRemotes()">RUN ALL 5 GITHUB REPOS</button>
         <p>Redirects each repo into its own blank tab.</p>
     </div>
-
     <h2>2. Local File Drop Zone</h2>
     <div id="drop-zone" class="zone">
         DRAG & DROP FOLDERS OR FILES HERE
         <div id="file-status">Accepts single files or entire project directories</div>
     </div>
-
     <script>
         const gitRepos = [
             "https://github.com",
@@ -36,7 +33,6 @@
             "https://github.com",
             "https://github.com"
         ];
-
         // --- PART 1: REMOTE GITHUB LOADING ---
         async function launchAllRemotes() {
             for (const url of gitRepos) {
@@ -54,22 +50,17 @@
                 }
             }
         }
-
         // --- PART 2: DRAG & DROP LOCAL FILES ---
         const dropZone = document.getElementById('drop-zone');
-
         ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(evt => {
             dropZone.addEventListener(evt, e => { e.preventDefault(); e.stopPropagation(); });
         });
-
         dropZone.addEventListener('dragover', () => dropZone.classList.add('drag-over'));
         dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
-
         dropZone.addEventListener('drop', async (e) => {
             dropZone.classList.remove('drag-over');
             const items = e.dataTransfer.items;
             let files = [];
-
             // Handle both folder drops and multiple file selections
             for (let item of items) {
                 if (item.kind === 'file') {
@@ -77,7 +68,6 @@
                     if (entry) await scanFiles(entry, files);
                 }
             }
-
             const indexFile = files.find(f => f.name.toLowerCase() === 'index.html');
             if (indexFile) {
                 const reader = new FileReader();
@@ -87,7 +77,6 @@
                 alert("No index.html detected in the dropped files.");
             }
         });
-
         async function scanFiles(entry, fileList) {
             if (entry.isFile) {
                 const file = await new Promise(res => entry.file(res));
@@ -98,12 +87,10 @@
                 for (let e of entries) await scanFiles(e, fileList);
             }
         }
-
         // --- CORE EXECUTION ENGINE ---
         function openInNewTab(htmlContent, remoteBaseUrl = null, localFiles = []) {
             const win = window.open('about:blank', '_blank');
             let finalHtml = htmlContent;
-
             if (remoteBaseUrl) {
                 // If it's a GitHub file, use <base> to load dependencies from the cloud
                 const baseTag = `<base href="${remoteBaseUrl}">`;
@@ -113,7 +100,6 @@
                 // For a simple 'about:blank' redirect, we inject the raw HTML.
                 console.log("Local files loaded into memory.");
             }
-
             const blob = new Blob([finalHtml], { type: 'text/html' });
             win.location.href = URL.createObjectURL(blob);
         }
