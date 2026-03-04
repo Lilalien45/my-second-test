@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GitHub Project Loader</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+body { font-family: Arial, sans-serif; background:#111; color:#fff; margin:0; padding:20px; }
+button, input { margin:5px; padding:10px; }
+#files { margin-top:15px; max-height:300px; overflow:auto; border:1px solid #444; padding:10px; }
+iframe { width:100%; height:400px; margin-top:15px; background:#fff; }
+textarea { width:100%; height:200px; background:#222; color:#0f0; }
+</style>
+</head>
+<body>
+
+<h2>GitHub Project / ZIP Loader</h2>
+
+<input type="file" id="zipInput" accept=".zip">
+<input type="text" id="githubUrl" placeholder="GitHub ZIP URL">
+<br>
+<button onclick="loadZipFile()">Load File</button>
+<button onclick="viewSelected()">View File</button>
+<button onclick="editSelected()">Edit File</button>
+<button onclick="saveUnzipped()">Save As Unzipped</button>
+
+<div id="files"></div>
+<textarea id="editor" style="display:none;"></textarea>
+<iframe id="viewer"></iframe>
+
+<script>
+let zipData = null;
+let currentFile = null;
+
+async function loadZipFile() {
+    const fileInput = document.getElementById("zipInput").files[0];
+    const githubUrl = document.getElementById("githubUrl").value;
+    let arrayBuffer;
+
+    if (fileInput) {
+        arrayBuffer = await fileInput.arrayBuffer();
+    } else if (githubUrl) {
+        const response = await fetch(githubUrl);
+        arrayBuffer = await response.arrayBuffer();
+    } else {
+        alert("Select a ZIP file or provide a GitHub ZIP URL.");
+        return;
+    }
+
+    zipData = await JSZip.loadAsync(arrayBuffer);
+    displayFiles();
+}
+
+function displayFiles() {
+    const filesDiv = document.getElementById("files");
+    filesDiv.innerHTML = "";
+    zipData.forEach((relativePath, file) => {
+        if (!file.dir) {
+            const btn = document.createElement("button");
+            btn.textContent = relativePath;
+            btn.onclick = () => { currentFile = file; };
+            filesDiv.appendChild(btn);
+            filesDiv.appendChild(document.createElement("br"));
+        }
+    });
+}
+
+async function viewSelected() {
+    if (!currentFile) return;
+    const content = await currentFile.async("string");
+    const iframe = document.getElementById("viewer");
+    const blob = new Blob([content], { type: "text/html" });
+    const url = URL.createObjectURL(blob);
+    iframe.src = url;
+}
+
+async function editSelected() {
+    if (!currentFile) return;
+    const content = await currentFile.async("string");
+    const editor = document.getElementById("editor");
+    editor.style.display = "block";
+    editor.value = content;
+    editor.oninput = () => {
+        zipData.file(currentFile.name, editor.value);
+    };
+}
+
+async function saveUnzipped() {
+    if (!zipData) return;
+    zipData.forEach(async (relativePath, file) => {
+        if (!file.dir) {
+            const content = await file.async("blob");
+            const a = document.createElement("a");
+            a.href = URL.createObjectURL(content);
+            a.download = relativePath;
+            a.click();
+        }
+    });
+}
+</script>
+
+</body>
+</html>
