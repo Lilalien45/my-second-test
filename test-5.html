@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HTML ZIP Project Loader</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+body { font-family: Arial, sans-serif; background:#111; color:#fff; padding:20px; }
+button,input { margin:5px; padding:10px; }
+#fileList { max-height:300px; overflow:auto; border:1px solid #444; padding:10px; }
+</style>
+</head>
+<body>
+
+<h2>Load GitHub Project / ZIP</h2>
+
+<input type="file" id="zipInput" accept=".zip" multiple>
+<button onclick="loadZip()">Load ZIP</button>
+<button onclick="openSelected()">Open Selected In about:blank</button>
+
+<div id="fileList"></div>
+
+<script>
+let zipData = null;
+
+async function loadZip() {
+    const files = document.getElementById("zipInput").files;
+    if (!files.length) {
+        alert("Select a ZIP file.");
+        return;
+    }
+
+    const arrayBuffer = await files[0].arrayBuffer();
+    zipData = await JSZip.loadAsync(arrayBuffer);
+
+    const list = document.getElementById("fileList");
+    list.innerHTML = "";
+
+    zipData.forEach((path, file) => {
+        if (!file.dir) {
+            const label = document.createElement("label");
+            const checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.value = path;
+
+            label.appendChild(checkbox);
+            label.appendChild(document.createTextNode(" " + path));
+            list.appendChild(label);
+            list.appendChild(document.createElement("br"));
+        }
+    });
+}
+
+async function openSelected() {
+    if (!zipData) return;
+
+    const checked = document.querySelectorAll("#fileList input:checked");
+    if (!checked.length) {
+        alert("Select at least one file.");
+        return;
+    }
+
+    const newTab = window.open("about:blank", "_blank");
+
+    let combinedContent = "<!DOCTYPE html><html><head><title>Project View</title></head><body>";
+
+    for (let box of checked) {
+        const file = zipData.file(box.value);
+        const content = await file.async("string");
+
+        combinedContent += "<h3>" + box.value + "</h3>";
+
+        if (box.value.endsWith(".html")) {
+            combinedContent += content;
+        } else if (box.value.endsWith(".js")) {
+            combinedContent += "<script>" + content + "<\/script>";
+        } else if (box.value.endsWith(".css")) {
+            combinedContent += "<style>" + content + "</style>";
+        } else {
+            combinedContent += "<pre>" + content.replace(/</g,"&lt;") + "</pre>";
+        }
+    }
+
+    combinedContent += "</body></html>";
+
+    newTab.document.open();
+    newTab.document.write(combinedContent);
+    newTab.document.close();
+}
+</script>
+
+</body>
+</html>
