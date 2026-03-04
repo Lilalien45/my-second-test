@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GitHub Client-to-Static Porter</title>
+    <!-- JSZip for client-side unzipping -->
+    <script src="https://cdnjs.cloudflare.com"></script>
+    <style>
+        :root { --bg: #0d1117; --text: #c9d1d9; --accent: #238636; --border: #30363d; --sidebar: #161b22; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; 
+               background: var(--bg); color: var(--text); display: flex; flex-direction: column; height: 100vh; margin: 0; overflow: hidden; }
+        
+        header { padding: 15px 20px; border-bottom: 1px solid var(--border); background: var(--sidebar); display: flex; justify-content: space-between; align-items: center; gap: 15px; }
+        .input-area { display: flex; gap: 10px; flex: 1; max-width: 700px; }
+        input { flex: 1; padding: 10px; border-radius: 6px; border: 1px solid var(--border); background: #010409; color: white; outline: none; }
+        input:focus { border-color: #58a6ff; }
+        
+        .btn { padding: 10px 18px; border-radius: 6px; cursor: pointer; font-weight: 600; border: none; transition: 0.2s; white-space: nowrap; }
+        .btn-primary { background: var(--accent); color: white; }
+        .btn-primary:hover { background: #2ea043; }
+        .btn-secondary { background: #21262d; color: #c9d1d9; border: 1px solid var(--border); display: none; }
+        .btn-secondary:hover { background: #30363d; }
+
+        main { display: flex; flex: 1; overflow: hidden; }
+        #sidebar { width: 300px; border-right: 1px solid var(--border); background: var(--sidebar); overflow-y: auto; padding: 10px; }
+        #viewer { flex: 1; padding: 0; background: var(--bg); overflow-y: auto; position: relative; }
+        
+        pre { margin: 0; padding: 20px; font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; font-size: 14px; line-height: 1.5; white-space: pre-wrap; word-break: break-all; }
+        
+        .file-item { padding: 8px 12px; cursor: pointer; border-radius: 4px; font-size: 13px; color: #8b949e; display: flex; align-items: center; gap: 8px; }
+        .file-item:hover { background: #1f242c; color: #58a6ff; }
+        .file-item.active { background: #23863622; color: #fff; border-left: 3px solid var(--accent); }
+        .loader-text { padding: 20px; color: #8b949e; font-style: italic; }
+        
+        /* Hide UI elements during snapshot auto-load */
+        body.is-snapshot .input-area { display: none; }
+    </style>
+</head>
+<body>
+
+<header id="app-header">
+    <div class="input-area">
+        <input type="text" id="repo-url" placeholder="Paste GitHub URL (e.g. https://github.com)">
+        <button class="btn btn-primary" onclick="handleLoad()">Load Github Repo</button>
+    </div>
+    <button id="export-btn" class="btn btn-secondary" onclick="exportStaticPage()">💾 Export as Standalone HTML</button>
+</header>
+
+<main>
+    <div id="sidebar">
+        <div class="loader-text">Enter a URL to load files...</div>
+    </div>
+    <div id="viewer">
+        <pre id="code-content">Select a file to view code.</pre>
+    </div>
+</main>
+
+<script>
+    let zipData = null; // Store the raw blob for exporting
+    let activeZip = null; // JSZip instance
+
+    /**
+     * Main Loader: Fetches from GitHub or uses provided blob
+     */
+    async function handleLoad(blobSource = null) {
+        const sidebar = document.getElementById('sidebar');
+        const codeContent = document.getElementById('code-content');
+        const exportBtn = document.getElementById('export-btn');
+
+        try {
+            if (!blobSource) {
+                const url = document.getElementById('repo-url').value.trim();
+                if (!url) return;
+                
+                sidebar.innerHTML = '<div class="loader-text">Downloading from GitHub...</div>';
+                
+                // Construct ZIP URL: converts repo link to the main branch zip archive
+                const cleanUrl = url.replace(/\/$/, "");
+                const zipUrl = `${cleanUrl}/archive/refs/heads/main.zip`;
+                
+                // Use a public proxy to bypass CORS
+                const proxyUrl = `https://api.allorigins.win{encodeURIComponent(zipUrl)}`;
+                
+                const response = await fetch(proxyUrl);
+                if (!response.ok) throw new Error("Could not fetch repo. Verify it is public.");
+                zipData = await response.blob();
+            } else {
+                zipData = blobSource;
+            }
+
+            activeZip = await JSZip.loadAsync(zipData);
+            renderFileTree();
+            exportBtn.style.display = 'block';
+            codeContent.innerText = "Repository loaded successfully. Select a file from the sidebar.";
+            
+        } catch (err) {
+            sidebar.innerHTML = `<div class="loader-text" style="color:#f85149">Error: ${err.message}</div>`;
+        }
+    }
+
+    /**
+     * Renders the sidebar with files from the ZIP
+     */
+    function renderFileTree() {
+        const sidebar = document.getElementById('sidebar');
+        sidebar.innerHTML = '<div style="font-weight:bold; margin-bottom:10px; font-size:12px; color:#8b949e">PROJECT FILES</div>';
+
+        activeZip.forEach((relativePath, file) => {
+            if (!file.dir) {
+                const item = document.createElement('div');
+                item.className = 'file-item';
+                item.innerHTML = `<span>📄</span> ${relativePath}`;
+                item.onclick = () => displayFile(relativePath, item);
+                sidebar.appendChild(item);
+            }
+        });
+    }
+
+    /**
+     * Reads a specific file and shows it in the viewer
+     */
+    async function displayFile(path, element) {
+        const content = await activeZip.file(path).async("string");
+        document.getElementById('code-content').textContent = content;
+        
+        document.querySelectorAll('.file-item').forEach(el => el.classList.remove('active'));
+        element.classList.add('active');
+        document.getElementById('viewer').scrollTop = 0;
+    }
+
+    /**
+     * Generates a new HTML file with the ZIP data embedded as Base64
+     */
+    function exportStaticPage() {
+        if (!zipData) return;
+
+        const reader = new FileReader();
+        reader.readAsDataURL(zipData);
+        reader.onloadend = function() {
+            const base64String = reader.result;
+            
+            // Generate the snapshot logic
+            const snapshotScript = `
+<script>
+    window.isSnapshot = true;
+    window.embeddedData = "${base64String}";
+    
+    window.addEventListener('DOMContentLoaded', async () => {
+        document.body.classList.add('is-snapshot');
+        const res = await fetch(window.embeddedData);
+        const blob = await res.blob();
+        handleLoad(blob);
+    });
+<\/script>`;
+
+            // Clone the current document and append the snapshot script
+            const htmlContent = document.documentElement.outerHTML + snapshotScript;
+            const blob = new Blob([htmlContent], {type: 'text/html'});
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = "github-static-bundle.html";
+            link.click();
+        };
+    }
+</script>
+
+</body>
+</html>
