@@ -7,10 +7,14 @@
     <script>
         // This script runs inside the HTML to find the number in your URL
         const currentUrl = window.location.href;
-        const match = currentUrl.match(/test-(\d+)\.html/) 
+        
+        // This finds the number between "test-" and ".html"
+        const match = currentUrl.match(/test-(\d+)\.html/);
+        
         if (match) {
             const currentNumber = parseInt(match[1]);
-            const nextNumber = currentNumber + 1 
+            const nextNumber = currentNumber + 1;
+
             if (nextNumber <= 200) {
                 // Change the number and go to the next page
                 const nextUrl = currentUrl.replace(`test-${currentNumber}`, `test-${nextNumber}`);
