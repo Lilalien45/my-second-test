@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GitHub API Project Loader</title>
+
+<!-- JSZip for ZIP extraction -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+<style>
+body{
+    font-family: Arial, sans-serif;
+    background:#0d1117;
+    color:#c9d1d9;
+    padding:20px;
+}
+input,button{
+    margin:5px;
+    padding:8px;
+}
+#fileList{
+    max-height:350px;
+    overflow:auto;
+    border:1px solid #30363d;
+    padding:10px;
+    background:#161b22;
+}
+</style>
+</head>
+<body>
+
+<h2>GitHub API Based Repository Loader</h2>
+
+<input type="text" id="repoInput" placeholder="owner/repository (example: torvalds/linux)">
+<input type="text" id="branchInput" placeholder="branch (default: main)">
+<br>
+<button onclick="loadRepo()">Load Repository (GitHub API)</button>
+<button onclick="selectAllFiles()">Select All</button>
+<button onclick="openSelected()">Open Selected in about:blank</button>
+
+<div id="status"></div>
+<div id="fileList"></div>
+
+<script>
+let repoFiles = {};
+let currentOwner = "";
+let currentRepo = "";
+let currentBranch = "main";
+
+/* Load repository using GitHub's REST API (same system GitHub uses internally) */
+async function loadRepo(){
+    const repoValue = document.getElementById("repoInput").value.trim();
+    const branchValue = document.getElementById("branchInput").value.trim();
+    const status = document.getElementById("status");
+
+    if(!repoValue.includes("/")){
+        alert("Use format: owner/repository");
+        return;
+    }
+
+    [currentOwner, currentRepo] = repoValue.split("/");
+    currentBranch = branchValue || "main";
+
+    status.innerText = "Fetching repository tree from GitHub API...";
+
+    try{
+        /* Step 1: Get latest commit SHA */
+        const branchRes = await fetch(
+            `https://api.github.com/repos/${currentOwner}/${currentRepo}/branches/${currentBranch}`
+        );
+        const branchData = await branchRes.json();
+        const treeSha = branchData.commit.commit.tree.sha;
+
+        /* Step 2: Get full recursive tree (like GitHub file browser) */
+        const treeRes = await fetch(
+            `https://api.github.com/repos/${currentOwner}/${currentRepo}/git/trees/${treeSha}?recursive=1`
+        );
+        const treeData = await treeRes.json();
+
+        repoFiles = {};
+        const list = document.getElementById("fileList");
+        list.innerHTML = "";
+
+        treeData.tree.forEach(item=>{
+            if(item.type === "blob"){
+                repoFiles[item.path] = item;
+
+                const label = document.createElement("label");
+                const checkbox = document.createElement("input");
+                checkbox.type = "checkbox";
+                checkbox.value = item.path;
+
+                label.appendChild(checkbox);
+                label.appendChild(document.createTextNode(" " + item.path));
+                list.appendChild(label);
+                list.appendChild(document.createElement("br"));
+            }
+        });
+
+        status.innerText = "Repository loaded using GitHub API.";
+    }
+    catch(e){
+        status.innerText = "Failed to load repository (check name, branch, or rate limit).";
+    }
+}
+
+/* Select all files */
+function selectAllFiles(){
+    document.querySelectorAll("#fileList input[type='checkbox']")
+        .forEach(box => box.checked = true);
+}
+
+/* Fetch file contents the same way GitHub retrieves blobs */
+async function fetchFileContent(path){
+    const response = await fetch(
+        `https://raw.githubusercontent.com/${currentOwner}/${currentRepo}/${currentBranch}/${path}`
+    );
+    return await response.text();
+}
+
+/* Open selected files in separate about:blank tab */
+async function openSelected(){
+    const selected = document.querySelectorAll("#fileList input:checked");
+    if(!selected.length){
+        alert("Select at least one file.");
+        return;
+    }
+
+    const newTab = window.open("about:blank","_blank");
+
+    let htmlContent = "<!DOCTYPE html><html><head><meta charset='UTF-8'><title>Loaded Repository</title></head><body>";
+
+    for(let item of selected){
+        const path = item.value;
+        const content = await fetchFileContent(path);
+
+        if(path.endsWith(".html")){
+            htmlContent += content;
+        }
+        else if(path.endsWith(".css")){
+            htmlContent += "<style>"+content+"</style>";
+        }
+        else if(path.endsWith(".js")){
+            htmlContent += "<script>"+content+"<\/script>";
+        }
+        else{
+            htmlContent += "<pre>"+content.replace(/</g,"&lt;")+"</pre>";
+        }
+    }
+
+    htmlContent += "</body></html>";
+
+    newTab.document.open();
+    newTab.document.write(htmlContent);
+    newTab.document.close();
+}
+</script>
+
+</body>
+</html>
