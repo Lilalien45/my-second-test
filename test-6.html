@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Advanced GitHub Project Loader</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+<style>
+body {
+    font-family: Arial, sans-serif;
+    background:#0f0f0f;
+    color:#ffffff;
+    padding:20px;
+}
+button,input {
+    margin:5px;
+    padding:10px;
+}
+#fileList {
+    max-height:350px;
+    overflow:auto;
+    border:1px solid #444;
+    padding:10px;
+}
+#status {
+    margin-top:10px;
+    color:#00ff88;
+}
+</style>
+</head>
+<body>
+
+<h2>GitHub Project / Multi-ZIP Loader (Full Restore Enabled)</h2>
+
+<input type="file" id="zipInput" accept=".zip" multiple>
+<input type="text" id="githubUrl" placeholder="Direct GitHub ZIP URL (optional)">
+<br>
+<button onclick="loadZip()">Load Project(s)</button>
+<button onclick="selectAllFiles()">Select All</button>
+<button onclick="restoreAllFiles()">Restore Removed Files</button>
+<button onclick="openSelected()">Open Selected in about:blank</button>
+
+<div id="status"></div>
+<div id="fileList"></div>
+
+<script>
+let allZips = [];              // Stores all loaded ZIP objects
+let originalFiles = {};        // Backup of original files
+let combinedFileIndex = {};    // Maps unique ID to file reference
+
+/* Load multiple ZIPs (local or internet) */
+async function loadZip() {
+    const fileInputs = document.getElementById("zipInput").files;
+    const githubUrl = document.getElementById("githubUrl").value.trim();
+    const status = document.getElementById("status");
+    status.innerText = "Loading...";
+    
+    try {
+        // Load local ZIPs
+        for (let file of fileInputs) {
+            const buffer = await file.arrayBuffer();
+            const zip = await JSZip.loadAsync(buffer);
+            allZips.push(zip);
+        }
+
+        // Load GitHub ZIP if provided
+        if (githubUrl) {
+            const response = await fetch(githubUrl, { mode: "cors" });
+            if (!response.ok) throw new Error("Network error");
+            const buffer = await response.arrayBuffer();
+            const zip = await JSZip.loadAsync(buffer);
+            allZips.push(zip);
+        }
+
+        indexAllFiles();
+        status.innerText = "All ZIPs Loaded Successfully.";
+    } catch (e) {
+        status.innerText = "Load failed (check URL, CORS, or ZIP integrity).";
+    }
+}
+
+/* Index every file from every ZIP */
+function indexAllFiles() {
+    const list = document.getElementById("fileList");
+    list.innerHTML = "";
+    combinedFileIndex = {};
+    originalFiles = {};
+
+    let counter = 0;
+
+    allZips.forEach((zip, zipIndex) => {
+        zip.forEach((path, file) => {
+            if (!file.dir) {
+                const uniqueId = "zip" + zipIndex + "_file" + counter++;
+                combinedFileIndex[uniqueId] = file;
+                originalFiles[uniqueId] = file;
+
+                const label = document.createElement("label");
+                const checkbox = document.createElement("input");
+                checkbox.type = "checkbox";
+                checkbox.value = uniqueId;
+
+                label.appendChild(checkbox);
+                label.appendChild(document.createTextNode(" [ZIP " + (zipIndex+1) + "] " + path));
+                list.appendChild(label);
+                list.appendChild(document.createElement("br"));
+            }
+        });
+    });
+}
+
+/* Select all files */
+function selectAllFiles() {
+    const checkboxes = document.querySelectorAll("#fileList input[type='checkbox']");
+    checkboxes.forEach(box => box.checked = true);
+}
+
+/* Restore removed files (re-index everything) */
+function restoreAllFiles() {
+    indexAllFiles();
+}
+
+/* Open selected files in about:blank */
+async function openSelected() {
+    const selected = document.querySelectorAll("#fileList input:checked");
+    if (!selected.length) {
+        alert("Select at least one file.");
+        return;
+    }
+
+    const newTab = window.open("about:blank", "_blank");
+
+    let htmlContent = "<!DOCTYPE html><html><head><meta charset='UTF-8'><title>Loaded Project</title></head><body>";
+
+    for (let item of selected) {
+        const file = combinedFileIndex[item.value];
+        const content = await file.async("string");
+
+        if (file.name.endsWith(".html")) {
+            htmlContent += content;
+        } 
+        else if (file.name.endsWith(".css")) {
+            htmlContent += "<style>" + content + "</style>";
+        } 
+        else if (file.name.endsWith(".js")) {
+            htmlContent += "<script>" + content + "<\/script>";
+        } 
+        else {
+            htmlContent += "<pre>" + content.replace(/</g,"&lt;") + "</pre>";
+        }
+    }
+
+    htmlContent += "</body></html>";
+
+    newTab.document.open();
+    newTab.document.write(htmlContent);
+    newTab.document.close();
+}
+</script>
+
+</body>
+</html>
