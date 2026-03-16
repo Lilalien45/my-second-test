@@ -3,37 +3,76 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
-    <title>Site + Eruda Console</title>
+    <title>Viewport + Console Button</title>
     <style>
         body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #000; }
-        .wrapper { display: flex; height: 100vh; width: 100vw; }
-        #site-frame { width: 50%; border: none; background: #fff; }
-        #console-container { width: 50%; height: 100%; position: relative; background: #222; border-left: 2px solid #444; }
+        
+        /* Viewport for the site */
+        #site-frame { width: 100vw; height: 100vh; border: none; background: #fff; }
+
+        /* Small floating trigger button */
+        #console-trigger {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: #2196F3;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-family: monospace;
+            font-weight: bold;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Container where Eruda will live */
+        #eruda-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 9998; pointer-events: none; }
     </style>
 </head>
 <body>
 
-    <div class="wrapper">
-        <!-- The Target Website -->
-        <iframe id="site-frame" src="https://youraislopbores.me"></iframe>
+    <!-- Site Viewport -->
+    <iframe id="site-frame" src="https://youraislopbores.me"></iframe>
 
-        <!-- The Eruda Console Container -->
-        <div id="console-container"></div>
-    </div>
+    <!-- Small Trigger Button -->
+    <button id="console-trigger" onclick="toggleConsole()">DEV</button>
 
-    <!-- Eruda Core Script from CDN -->
+    <!-- Eruda Container -->
+    <div id="eruda-container"></div>
+
+    <!-- Eruda Script -->
     <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
     <script>
-        // Initialize Eruda inside the specific right-hand container
+        // 1. Initialize Eruda in 'inline' mode but hide the default entry button
         eruda.init({
-            container: document.getElementById('console-container'),
+            container: document.getElementById('eruda-container'),
             tool: ['console', 'elements', 'network', 'resources'],
-            useShadowDom: true,
-            inline: true // This forces Eruda to stay inside the div instead of a floating button
+            inline: true 
         });
-        
-        // Open the console tab by default
-        eruda.show('console');
+
+        // 2. Function to show the console when the custom button is pressed
+        function toggleConsole() {
+            const container = document.getElementById('eruda-container');
+            
+            // Allow clicks to pass through to Eruda panel
+            container.style.pointerEvents = 'auto'; 
+            
+            // Open the console tab specifically
+            eruda.show('console'); 
+        }
+
+        // Optional: Hide the default Eruda "gear" button if it appears
+        if (eruda._shadowRoot) {
+            const defaultBtn = eruda._shadowRoot.querySelector('.eruda-entry-btn');
+            if (defaultBtn) defaultBtn.style.display = 'none';
+        }
     </script>
+
 </body>
 </html>
