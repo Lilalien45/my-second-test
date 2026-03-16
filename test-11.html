@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
+    <title>Site + Eruda Console</title>
+    <style>
+        body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #000; }
+        .wrapper { display: flex; height: 100vh; width: 100vw; }
+        #site-frame { width: 50%; border: none; background: #fff; }
+        #console-container { width: 50%; height: 100%; position: relative; background: #222; border-left: 2px solid #444; }
+    </style>
+</head>
+<body>
+
+    <div class="wrapper">
+        <!-- The Target Website -->
+        <iframe id="site-frame" src="https://youraislopbores.me"></iframe>
+
+        <!-- The Eruda Console Container -->
+        <div id="console-container"></div>
+    </div>
+
+    <!-- Eruda Core Script from CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
+    <script>
+        // Initialize Eruda inside the specific right-hand container
+        eruda.init({
+            container: document.getElementById('console-container'),
+            tool: ['console', 'elements', 'network', 'resources'],
+            useShadowDom: true,
+            inline: true // This forces Eruda to stay inside the div instead of a floating button
+        });
+        
+        // Open the console tab by default
+        eruda.show('console');
+    </script>
+</body>
+</html>
